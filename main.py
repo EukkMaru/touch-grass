@@ -14,33 +14,47 @@ USERNAME = "EukkMaru"
 START_DATE = datetime(2023, 1, 1)
 REPO_PATH = "C:\\Users\\Lenovo\\Desktop\\EukkMaru\\coding\\touch-grass"  # Path to your Git repository
 
-def get_contribution_data(username: str, start_date, end_date):
+def get_contribution_data(username, start_date, end_date):
     """Fetches contribution data between start_date and end_date using GitHub GraphQL API."""
     url = "https://api.github.com/graphql"
     headers = {
         "Authorization": f"Bearer {GITHUB_TOKEN}"
     }
-    query = f"""
-    {{
-      user(login: "{username}") {{
-        contributionsCollection(from: "{start_date.isoformat()}", to: "{end_date.isoformat()}") {{
-          contributionCalendar {{
-            weeks {{
-              contributionDays {{
-                date
-                contributionCount
+    
+    contributions = []
+
+    # Loop through the date range in one-year increments
+    current_start = start_date
+    while current_start < end_date:
+        current_end = min(current_start + timedelta(days=365), end_date)
+        
+        query = f"""
+        {{
+          user(login: "{username}") {{
+            contributionsCollection(from: "{current_start.isoformat()}", to: "{current_end.isoformat()}") {{
+              contributionCalendar {{
+                weeks {{
+                  contributionDays {{
+                    date
+                    contributionCount
+                  }}
+                }}
               }}
             }}
           }}
         }}
-      }}
-    }}
-    """
-    response = requests.post(url, json={'query': query}, headers=headers)
-    data = response.json()
-    if "errors" in data:
-        raise Exception(data["errors"])
-    return data["data"]["user"]["contributionsCollection"]["contributionCalendar"]["weeks"]
+        """
+        
+        response = requests.post(url, json={'query': query}, headers=headers)
+        data = response.json()
+        
+        if "errors" in data:
+            raise Exception(data["errors"])
+        
+        contributions += data["data"]["user"]["contributionsCollection"]["contributionCalendar"]["weeks"]
+        current_start = current_end + timedelta(days=1)
+
+    return contributions
 
 def find_empty_days(contribution_weeks):
     """Identifies days with zero contributions."""
@@ -76,3 +90,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+
